@@ -21,6 +21,4 @@ dc
 
 TODO:
 
-shellcheck, or w/e it was called
-find bash standard from backup script
 check env passing for test runner

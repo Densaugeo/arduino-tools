@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euf -o pipefail
 
 if [[ ! $1 || $1 == "help" ]]; then
   echo "Usage: quick-sim.sh SKETCH";
@@ -8,16 +8,20 @@ if [[ ! $1 || $1 == "help" ]]; then
   exit;
 fi
 
-echo "Compiling armock.cpp with $1..."
-g++ armock.cpp -o armock-quick-sim -lrt -D SKETCH="\"$1\""
+# Canonicalize = recursive
+SKETCH=$(readlink --canonicalize "$1")
+cd "$(dirname "$(readlink --canonicalize "$0")")"
+
+echo "Compiling armock.cpp with $SKETCH..."
+g++ armock.cpp -o armock-quick-sim -lrt -D SKETCH="\"$SKETCH\""
 # -lrt option is required for mmap()
 
 function cleanup {
   set +e
 
-  if [ $ARMOCK_PID ]; then kill $ARMOCK_PID; fi
-  if [ $CAT_PID    ]; then kill $CAT_PID   ; fi
-  if [ $SOCAT_PID  ]; then kill $SOCAT_PID ; fi
+  if [ "$ARMOCK_PID" ]; then kill "$ARMOCK_PID"; fi
+  if [ "$CAT_PID"    ]; then kill "$CAT_PID"   ; fi
+  if [ "$SOCAT_PID"  ]; then kill "$SOCAT_PID" ; fi
 }
 
 trap cleanup EXIT

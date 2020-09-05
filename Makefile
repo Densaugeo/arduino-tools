@@ -1,5 +1,9 @@
 SUITE=test/armock-test.py
 
+install-dev:
+	python3 -m pip install --user pyserial nose rednose
+	sudo dnf install ShellCheck
+
 test-armock: test/armock-test.py test/armock
 	python3 -m nose --verbosity=2 --rednose $(SUITE)
 
