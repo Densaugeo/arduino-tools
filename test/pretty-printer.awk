@@ -1,4 +1,4 @@
-/\(armock-test.[A-Za-z_]+\) .../ {
+/\(arterm.[A-Za-z_]+\) .../ {
   # Add spacing and yellow color to [foo]
   non_printing = 5*gsub(/\[/, " [\x1B[93m", $1);
   non_printing += 4*gsub(/\]/, "\x1B[0m]", $1);
