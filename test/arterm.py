@@ -65,7 +65,7 @@ class Shared(unittest.TestCase):
             shm_eeprom.write(bytes(shm_eeprom.size))
         
         # Only easy way to read stderr with a timeout is to redirect it through the pty
-        self.armock = subprocess.Popen([ARMOCK_PATH, PTY_SLAVE_PATH, 'armock_pins', 'armock_eeprom'], stderr=slave)
+        self.armock = subprocess.Popen([ARMOCK_PATH, 'armock_pins', 'armock_eeprom'], stdin=slave, stdout=slave, stderr=slave)
         
         # Wait until armock has finished starting up
         assert_srun('ps ready\n', 'ready\r\n7\r\n')

@@ -35,24 +35,22 @@ void delay(u32 ms) { sleep(ms/1000); usleep((ms % 1000)*1000); }
 void delayMicroseconds(u16 us) { usleep(us); }
 
 struct SerialMock {
-  int fd;
-  
   void begin(u32) {}
   
   i16 available() {
     i32 result;
-    ioctl(fd, FIONREAD, &result);
+    ioctl(STDIN_FILENO, FIONREAD, &result);
     return result;
   }
   
   i16 read() {
     u8 byte;
-    return ::read(fd, &byte, 1) < 0 ? -1 : byte;
+    return ::read(STDIN_FILENO, &byte, 1) < 0 ? -1 : byte;
   }
   
-  size_t print(u32 v        ) { return dprintf(fd, "%u", v); }
-  size_t print(i32 v        ) { return dprintf(fd, "%i", v); }
-  size_t print(const char* v) { return dprintf(fd, "%s", v); }
+  size_t print(u32 v        ) { return printf("%u", v); }
+  size_t print(i32 v        ) { return printf("%i", v); }
+  size_t print(const char* v) { return printf("%s", v); }
   
   template <typename T> size_t println(T v) { return print(v) + print("\r\n"); }
 };
@@ -116,7 +114,7 @@ u8* get_shm(const char* name, u32 size) {
 }
 
 int main(int argc, char** argv) {
-  if(argc < 2) {
+  /*if(argc < 2) {
     printf("Usage: armock PSEUDOTERMINAL\n");
     exit(0);
   }
@@ -125,7 +123,7 @@ int main(int argc, char** argv) {
   if(Serial.fd < 0) {
     perror(argv[1]);
     exit(1);
-  }
+  }*/
   
   pin_values = get_shm("armock_pins", PINS);
   

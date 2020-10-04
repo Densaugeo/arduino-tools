@@ -33,7 +33,7 @@ SOCAT_PID=$!
 sleep 1
 
 echo "Starting armock attached to pty-slave..."
-./armock-quick-sim pty-slave &
+./armock-quick-sim < pty-slave > pty-slave &
 ARMOCK_PID=$!
 
 echo "Relaying this terminal to pty-master..."
