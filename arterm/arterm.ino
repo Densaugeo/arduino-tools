@@ -11,6 +11,8 @@
 //   ee - EEPROM[]
 // ARG1 is a 1-8 digit hex value, ARG2 is 1-2 digits
 
+#include <EEPROM.h>
+
 typedef int32_t i32;
 
 u8 unhex(u8 c) {
