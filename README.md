@@ -22,3 +22,18 @@ dc
 TODO:
 
 check env passing for test runner
+EEPROM.H
+nano tests
+simplify quick-sim
+handle \r\n in test sketch
+assertEquals > assertEqual
+
+Scenarios:
+virtual tests
+virtual test special scenario - pty
+virtual general use
+virtual quick use
+nano tests w/ breadboard
+slow nano tests w/ breadboard
+reduced nano tests w/o breadboard
+nano general use
