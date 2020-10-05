@@ -21,7 +21,6 @@ dc
 
 TODO:
 
-check env passing for test runner
 EEPROM.H
 nano tests
 simplify quick-sim
