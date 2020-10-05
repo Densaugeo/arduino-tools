@@ -21,7 +21,6 @@ dc
 
 TODO:
 
-EEPROM.H
 nano tests
 simplify quick-sim
 handle \r\n in test sketch

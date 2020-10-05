@@ -9,7 +9,6 @@
 #define OUTPUT 0x1
 #define MODE_UNDEFINED 0x2
 #define PINS 16
-#define EEPROM_SIZE 1024
 
 typedef uint8_t u8;
 typedef uint16_t u16;
@@ -56,8 +55,6 @@ struct SerialMock {
 };
 
 SerialMock Serial;
-
-u8* EEPROM;
 
 u8* pin_values;
 u8 pin_modes[PINS];
@@ -132,7 +129,9 @@ int main(int argc, char** argv) {
     pin_values[i] = 0;
   }
   
+#ifdef EEPROM_h
   EEPROM = get_shm("armock_eeprom", EEPROM_SIZE);
+#endif
   
   setvbuf (stdout, NULL, _IOLBF, 1024); // Line-buffering
   
