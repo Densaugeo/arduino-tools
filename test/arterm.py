@@ -1,17 +1,31 @@
-import unittest, os, time, subprocess, serial
+import unittest, os, time, select, subprocess, fcntl
 
 ARMOCK_PATH = os.path.join(os.path.dirname(__file__), 'armock')
-PTY_MASTER_PATH = os.path.join(os.path.dirname(__file__), 'pty-master')
-PTY_SLAVE_PATH = os.path.join(os.path.dirname(__file__), 'pty-slave')
 
 dummy = unittest.TestCase()
 
-def sreadline(readlines=1):
-    return ''.join([str(master.readline(), 'utf-8') for i in range(readlines)])
+def ereadline():
+    select.select([armock.stderr], [], [], 1)[0]
+    return str(armock.stderr.readline(), 'utf-8')
+
+def sreadline(count=1):
+    result = []
+    line = b''
+    
+    while len(result) < count:
+        # Select waits for data with a timeout
+        if line == b'' and  len(select.select([armock.stdout], [], [], 1)[0]) == 0: break
+        
+        line = armock.stdout.readline()
+        # .readline() will return an empty string if it doesn't have data available
+        if(line): result.append(line)
+    
+    return ''.join(str(line, 'utf-8') for line in result)
 
 def srun(cmd, readlines=0):
-    master.write(bytes(cmd, 'utf-8'))
-    return sreadline(readlines)
+    armock.stdin.write(bytes(cmd, 'utf-8'))
+    armock.stdin.flush()
+    return sreadline(count=readlines) if readlines else ''
 
 def assert_srun(cmd, expected):
     dummy.assertEquals(srun(cmd, readlines=expected.count('\n')), expected)
@@ -36,13 +50,7 @@ def expand_cmd(cmd):
     }.get(cmd[:2])
 
 def setUpModule():
-    global master, slave, socat, shm_pins, shm_eeprom
-    
-    socat = subprocess.Popen(['socat', 'pty,raw,echo=0,link=' + PTY_SLAVE_PATH,
-        'pty,raw,echo=0,link=' + PTY_MASTER_PATH])
-    while not os.path.exists(PTY_MASTER_PATH): time.sleep(0.1)
-    master = serial.Serial(port=PTY_MASTER_PATH, timeout=1)
-    slave = serial.Serial(port=PTY_SLAVE_PATH, timeout=1)
+    global shm_pins, shm_eeprom
     
     shm_pins = open('/dev/shm/armock_pins', 'w+b', buffering=0)
     shm_pins.size = 16
@@ -50,12 +58,11 @@ def setUpModule():
     shm_eeprom.size = 1024
 
 def tearDownModule():
-    socat.terminate()
+    pass
 
 class Shared(unittest.TestCase):
     def setUp(self, clear_eeprom=True):
-        master.reset_input_buffer()
-        slave.reset_input_buffer()
+        global armock
         
         shm_pins.expected = bytearray(shm_pins.size)
         shm_eeprom.expected = bytearray(shm_eeprom.size)
@@ -64,13 +71,16 @@ class Shared(unittest.TestCase):
             shm_eeprom.seek(0)
             shm_eeprom.write(bytes(shm_eeprom.size))
         
-        # Only easy way to read stderr with a timeout is to redirect it through the pty
-        self.armock = subprocess.Popen([ARMOCK_PATH, 'armock_pins', 'armock_eeprom'], stdin=slave, stdout=slave, stderr=slave)
+        self.armock = subprocess.Popen([ARMOCK_PATH, 'armock_pins', 'armock_eeprom'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        armock = self.armock
+        fcntl.fcntl(armock.stdout, fcntl.F_SETFL, fcntl.fcntl(armock.stdout, fcntl.F_GETFL) | os.O_NONBLOCK)
+        fcntl.fcntl(armock.stderr, fcntl.F_SETFL, fcntl.fcntl(armock.stderr, fcntl.F_GETFL) | os.O_NONBLOCK)
         
         # Wait until armock has finished starting up
         assert_srun('ps ready\n', 'ready\r\n7\r\n')
     
     def tearDown(self):
+        dummy.assertEqual(armock.stderr.readline(), b'')
         response = srun('ps teardown\n', readlines=2)
         self.armock.terminate()
         self.assertEquals(response, 'teardown\r\n10\r\n')
@@ -160,7 +170,7 @@ for cmd, pin_value, error in [
         srun(cmd)
         shm_pins.expected[pin] = pin_value
         
-        if error: assert_error_msg(sreadline(), fname=expand_cmd(cmd))
+        if error: assert_error_msg(ereadline(), fname=expand_cmd(cmd))
     
     setattr(Pins, '{}({},{}){}'.format(expand_cmd(cmd), cmd[3], cmd[5:-1],
         '!' if error else '->{}'.format(pin_value)), test)
@@ -183,9 +193,8 @@ for cmd, expected in [
     ('pm 10 0\n', ''),
 ]:
     def test(self, cmd=cmd, expected=expected):
-        assert_error_msg(srun(cmd, readlines=1), fname=expand_cmd(cmd))
-        
-        if expected: self.assertEquals(sreadline(), expected)
+        assert_srun(cmd, expected)
+        assert_error_msg(ereadline(), fname=expand_cmd(cmd))
     
     setattr(InvalidPinModes, '{}({})!'.format(expand_cmd(cmd), cmd[3:-1].replace(' ', ',')), test)
 

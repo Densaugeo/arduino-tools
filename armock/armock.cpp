@@ -134,6 +134,8 @@ int main(int argc, char** argv) {
   
   EEPROM = get_shm("armock_eeprom", EEPROM_SIZE);
   
+  setvbuf (stdout, NULL, _IOLBF, 1024); // Line-buffering
+  
   setup();
   
   while(true) loop();
