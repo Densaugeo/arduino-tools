@@ -1,12 +1,14 @@
-import unittest, os, time, select, subprocess, fcntl
+import unittest, os, sys, time, select
+import subprocess, fcntl # Used by sim target
+import serial # Used by nano target
 
 ARMOCK_PATH = os.path.join(os.path.dirname(__file__), 'armock')
 
 dummy = unittest.TestCase()
 
 def ereadline():
-    select.select([armock.stderr], [], [], 1)[0]
-    return str(armock.stderr.readline(), 'utf-8')
+    select.select([dut.stderr], [], [], 1)[0]
+    return str(dut.stderr.readline(), 'utf-8')
 
 def sreadline(count=1):
     result = []
@@ -14,17 +16,17 @@ def sreadline(count=1):
     
     while len(result) < count:
         # Select waits for data with a timeout
-        if line == b'' and  len(select.select([armock.stdout], [], [], 1)[0]) == 0: break
+        if line == b'' and  len(select.select([dut.stdout], [], [], 1)[0]) == 0: break
         
-        line = armock.stdout.readline()
+        line = dut.stdout.readline()
         # .readline() will return an empty string if it doesn't have data available
         if(line): result.append(line)
     
     return ''.join(str(line, 'utf-8') for line in result)
 
 def srun(cmd, readlines=0):
-    armock.stdin.write(bytes(cmd, 'utf-8'))
-    armock.stdin.flush()
+    dut.stdin.write(bytes(cmd, 'utf-8'))
+    dut.stdin.flush()
     return sreadline(count=readlines) if readlines else ''
 
 def assert_srun(cmd, expected):
@@ -50,44 +52,62 @@ def expand_cmd(cmd):
     }.get(cmd[:2])
 
 def setUpModule():
-    global shm_pins, shm_eeprom
+    global target, shm_pins, shm_eeprom
     
-    shm_pins = open('/dev/shm/armock_pins', 'w+b', buffering=0)
-    shm_pins.size = 16
-    shm_eeprom = open('/dev/shm/armock_eeprom', 'w+b', buffering=0)
-    shm_eeprom.size = 1024
+    assert 'TARGET' in os.environ, '$TARGET envionment variable not set'
+    target = os.environ['TARGET']
+    assert target in ['sim', 'nano'], 'Unknown $TARGET: {}'.format(target)
+    
+    if target == 'sim':
+        shm_pins = open('/dev/shm/armock_pins', 'w+b', buffering=0)
+        shm_pins.size = 16
+        shm_eeprom = open('/dev/shm/armock_eeprom', 'w+b', buffering=0)
+        shm_eeprom.size = 1024
+    
+    if target == 'nano':
+        global dut
+        nano = serial.Serial(port='/dev/ttyUSB0', baudrate=115200, timeout=1)
+        dut = lambda: None
+        setattr(dut, 'stdin', nano)
+        setattr(dut, 'stdout', nano)
+        time.sleep(1) # Wait for nano to reset
+        dut.stdout.readline() # Will time out
 
 def tearDownModule():
     pass
 
 class Shared(unittest.TestCase):
     def setUp(self, clear_eeprom=True):
-        global armock
+        if target == 'sim':
+            global dut
+            shm_pins.expected = bytearray(shm_pins.size)
+            shm_eeprom.expected = bytearray(shm_eeprom.size)
+            
+            if clear_eeprom:
+                shm_eeprom.seek(0)
+                shm_eeprom.write(bytes(shm_eeprom.size))
+            
+            self.dut = subprocess.Popen([ARMOCK_PATH, 'armock_pins', 'armock_eeprom'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            # Device Under Test
+            dut = self.dut
+            fcntl.fcntl(dut.stdout, fcntl.F_SETFL, fcntl.fcntl(dut.stdout, fcntl.F_GETFL) | os.O_NONBLOCK)
+            fcntl.fcntl(dut.stderr, fcntl.F_SETFL, fcntl.fcntl(dut.stderr, fcntl.F_GETFL) | os.O_NONBLOCK)
         
-        shm_pins.expected = bytearray(shm_pins.size)
-        shm_eeprom.expected = bytearray(shm_eeprom.size)
-        
-        if clear_eeprom:
-            shm_eeprom.seek(0)
-            shm_eeprom.write(bytes(shm_eeprom.size))
-        
-        self.armock = subprocess.Popen([ARMOCK_PATH, 'armock_pins', 'armock_eeprom'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        armock = self.armock
-        fcntl.fcntl(armock.stdout, fcntl.F_SETFL, fcntl.fcntl(armock.stdout, fcntl.F_GETFL) | os.O_NONBLOCK)
-        fcntl.fcntl(armock.stderr, fcntl.F_SETFL, fcntl.fcntl(armock.stderr, fcntl.F_GETFL) | os.O_NONBLOCK)
-        
-        # Wait until armock has finished starting up
+        # Wait until dut has finished starting up
         assert_srun('ps ready\n', 'ready\r\n7\r\n')
     
     def tearDown(self):
-        dummy.assertEqual(armock.stderr.readline(), b'')
         response = srun('ps teardown\n', readlines=2)
-        self.armock.terminate()
-        self.assertEquals(response, 'teardown\r\n10\r\n')
         
-        for shm in [shm_pins, shm_eeprom]:
-            shm.seek(0)
-            self.assertEquals(shm.read(), shm.expected)
+        if target == 'sim':
+            dummy.assertEqual(dut.stderr.readline(), b'')
+            self.dut.terminate()
+            
+            for shm in [shm_pins, shm_eeprom]:
+                shm.seek(0)
+                self.assertEquals(shm.read(), shm.expected)
+        
+        self.assertEquals(response, 'teardown\r\n10\r\n')
 
 class Time(Shared):
     pass
