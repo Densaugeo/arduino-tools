@@ -24,7 +24,6 @@ TODO:
 nano tests
 simplify quick-sim
 handle \r\n in test sketch
-assertEquals > assertEqual
 
 Scenarios:
 virtual tests

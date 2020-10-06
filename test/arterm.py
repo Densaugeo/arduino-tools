@@ -30,7 +30,7 @@ def srun(cmd, readlines=0):
     return sreadline(count=readlines) if readlines else ''
 
 def assert_srun(cmd, expected):
-    dummy.assertEquals(srun(cmd, readlines=expected.count('\n')), expected)
+    dummy.assertEqual(srun(cmd, readlines=expected.count('\n')), expected)
 
 def assert_error_msg(error_msg, fname):
     dummy.assertIn(fname, error_msg)
@@ -105,9 +105,9 @@ class Shared(unittest.TestCase):
             
             for shm in [shm_pins, shm_eeprom]:
                 shm.seek(0)
-                self.assertEquals(shm.read(), shm.expected)
+                self.assertEqual(shm.read(), shm.expected)
         
-        self.assertEquals(response, 'teardown\r\n10\r\n')
+        self.assertEqual(response, 'teardown\r\n10\r\n')
 
 class Time(Shared):
     pass
