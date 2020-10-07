@@ -1,5 +1,3 @@
 test/armock
 armock/armock
-test/pty-master
-test/pty-slave
 test/__pycache__

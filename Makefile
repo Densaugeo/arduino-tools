@@ -37,4 +37,4 @@ test/armock: armock/armock.cpp arterm/arterm.ino
 	g++ armock/armock.cpp -o test/armock -lrt -D SKETCH='"../arterm/arterm.ino"' -I armock
 
 clean:
-	rm -rf test/armock armock/armock test/pty-master test/pty-slave test/__pycache__
+	rm -rf test/armock armock/armock test/__pycache__
