@@ -11,7 +11,6 @@ python3 packages: nose, rednose, pyserial
 TODO:
 
 nano tests
-simplify quick-sim
 handle \r\n in test sketch
 
 Scenarios:

@@ -1,9 +1,21 @@
 export TARGET=sim
 SUITE=test/arterm.py
 
+install:
+	ln -s $(shell pwd)/simple-serial.sh /usr/bin/simple-serial
+	ln -s $(shell pwd)/armock/armock.sh /usr/bin/armock
+
+uninstall:
+	rm /usr/bin/simple-serial
+	rm /usr/bin/armock
+
 install-dev:
 	python3 -m pip install --user pyserial nose rednose
 	sudo dnf install ShellCheck
+
+lint:
+	shellcheck simple-serial.sh
+	shellcheck armock/armock.sh
 
 test-armock: test/arterm.py test/armock
 	python3 -m nose --verbosity=2 --rednose $(SUITE)
@@ -25,4 +37,4 @@ test/armock: armock/armock.cpp arterm/arterm.ino
 	g++ armock/armock.cpp -o test/armock -lrt -D SKETCH='"../arterm/arterm.ino"' -I armock
 
 clean:
-	rm -rf test/armock armock/armock-quick-sim test/pty-master test/pty-slave test/__pycache__
+	rm -rf test/armock armock/armock test/pty-master test/pty-slave test/__pycache__

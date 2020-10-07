@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euf -o pipefail
 
-if [[ ! $1 || $1 == "help" ]]; then
-  echo "Usage: quick-sim.sh SKETCH";
+if [[ $# == 0 || $# -gt 2 || $1 == "help" ]]; then
+  echo "Usage: armock SKETCH [PTY]";
   echo "To look at pins: xxd /dev/shm/armock_pins";
   echo "To set pin 2 = 7: echo '2: 07' | xxd -r - /dev/shm/armock_pins";
   exit;
@@ -10,38 +10,17 @@ fi
 
 # Canonicalize = recursive
 SKETCH=$(readlink --canonicalize "$1")
+if [[ $# == 2 ]]; then PTY=$(readlink --canonicalize "$2"); fi
 cd "$(dirname "$(readlink --canonicalize "$0")")"
 
 echo "Compiling armock.cpp with $SKETCH..."
-g++ armock.cpp -o armock-quick-sim -lrt -D SKETCH="\"$SKETCH\"" -I .
 # -lrt option is required for mmap()
+g++ armock.cpp -o armock -lrt -D SKETCH="\"$SKETCH\"" -I .
 
-function cleanup {
-  set +e
-
-  if [ "$ARMOCK_PID" ]; then kill "$ARMOCK_PID"; fi
-  if [ "$CAT_PID"    ]; then kill "$CAT_PID"   ; fi
-  if [ "$SOCAT_PID"  ]; then kill "$SOCAT_PID" ; fi
-}
-
-trap cleanup EXIT
-
-echo "Creating pty-slave and pty-master..."
-socat pty,raw,echo=0,link=pty-slave pty,raw,echo=0,link=pty-master &
-SOCAT_PID=$!
-
-sleep 1
-
-echo "Starting armock attached to pty-slave..."
-./armock-quick-sim < pty-slave > pty-slave &
-ARMOCK_PID=$!
-
-echo "Relaying this terminal to pty-master..."
-cat < pty-master &
-CAT_PID=$!
-
-echo "Ready"
-
-while read -r LINE; do echo "$LINE" > pty-master; done
-# -r causes read to not interpret escapes and pass \ through
-# -e causes echo to interpret escape sequences
+if [[ $# == 1 ]]; then
+  echo "Starting armock...";
+  ./armock;
+else
+  echo "Starting armock with serial io connected to $PTY...";
+  socat exec:./armock,pty,raw,echo=0 pty,raw,echo=0,link="$PTY";
+fi
