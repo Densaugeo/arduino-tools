@@ -149,7 +149,9 @@ for cmd, expected in [
     setattr(Serial, '{}({})'.format(expand_cmd(cmd), cmd[3:-1]), test)
 
 class Pins(Shared):
-    pass
+    @classmethod
+    def setUpClass(cls):
+        dummy.assertEqual(target, 'sim', 'not yet implemented for real hardware')
 
 for cmd, expected, pin_value in [
     ('ar 0\n', '255\r\n', 0xff),
@@ -196,7 +198,9 @@ for cmd, pin_value, error in [
         '!' if error else '->{}'.format(pin_value)), test)
 
 class InvalidPinModes(Shared):
-    pass
+    @classmethod
+    def setUpClass(cls):
+        dummy.assertEqual(target, 'sim', 'not yet implemented for real hardware')
 
 for cmd, expected in [
     ('ar 0\n', '-1\r\n'),
@@ -219,7 +223,9 @@ for cmd, expected in [
     setattr(InvalidPinModes, '{}({})!'.format(expand_cmd(cmd), cmd[3:-1].replace(' ', ',')), test)
 
 class EEPROM(Shared):
-    pass
+    @classmethod
+    def setUpClass(cls):
+        dummy.assertEqual(target, 'sim', 'not yet implemented for real hardware')
 
 for cmd, expected in [
     ('ee 000\n', '255\r\n'),
@@ -267,8 +273,12 @@ for cmd, ee_value in [
     setattr(EEPROM, 'write_EEPROM[{}]->{:x}'.format(cmd[3:6], ee_value), test)
 
 class ShmClearing(Shared):
+    @classmethod
+    def setUpClass(cls):
+        dummy.assertEqual(target, 'sim', 'shm tests do not apply to real hardware')
+    
     def setUp(self):
-        pass
+        pass # Overwrite Shared.setUp() to skip it
     
     def test_Pins_Cleared(self):
         shm_pins.seek(0)
