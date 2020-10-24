@@ -18,7 +18,7 @@ lint:
 
 test-armock: TARGET=sim
 test-armock: SUITE=EEPROM InvalidPinModes PinsSim Serial ShmClearing Time
-test-armock: nose test/armock
+test-armock: test/armock nose
 
 test-nano: TARGET=nano
 test-nano: SUITE=PinsFixture Serial Time
