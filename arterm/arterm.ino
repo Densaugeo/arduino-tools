@@ -41,15 +41,15 @@ struct FSM {
   void consume(u8 next) {
     if(next == '\n') {
       if(state == &FSM::space) {
-        if(cmd[0] == 'm' && cmd[1] == 's') Serial.println(millis());
+        if(cmd[0] == 'm' && cmd[1] == 's') Serial.println(millis(), HEX);
       } else if(state == &FSM::string && counter) {
         if(cmd[0] == 'p' && cmd[1] == 's') Serial.println((u32) Serial.println(string_arg), HEX);
       } else if(state == &FSM::hex1 && counter) {
         if(cmd[0] == 'p' && cmd[1] == 'u') Serial.println((u32) Serial.println((u32) arg1, HEX), HEX);
         if(cmd[0] == 'p' && cmd[1] == 'i') Serial.println((u32) Serial.println((i32) arg1, HEX), HEX);
-        if(cmd[0] == 'd' && cmd[1] == 'r') Serial.println(digitalRead(arg1));
-        if(cmd[0] == 'a' && cmd[1] == 'r') Serial.println(analogRead(arg1));
-        if(cmd[0] == 'e' && cmd[1] == 'e') Serial.println(EEPROM[arg1]);
+        if(cmd[0] == 'd' && cmd[1] == 'r') Serial.println(digitalRead(arg1), HEX);
+        if(cmd[0] == 'a' && cmd[1] == 'r') Serial.println(analogRead(arg1), HEX);
+        if(cmd[0] == 'e' && cmd[1] == 'e') Serial.println(EEPROM[arg1], HEX);
       } else if(state == &FSM::hex2 && counter) {
         if(cmd[0] == 'p' && cmd[1] == 'u') Serial.println((u32) Serial.println((u32) arg1, arg2), HEX);
         if(cmd[0] == 'p' && cmd[1] == 'i') Serial.println((u32) Serial.println((i32) arg1, arg2), HEX);

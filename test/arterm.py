@@ -114,11 +114,11 @@ class Time(Shared):
 
 for Δ in [50, 100, 200]:
     def test(self, Δ=Δ):
-        start = int(srun('ms\n', readlines=1))
+        start = int(srun('ms\n', readlines=1), 16)
         time.sleep(Δ/1000)
-        self.assertAlmostEqual(int(srun('ms\n', readlines=1)) - start, Δ + 5, delta=5)
+        self.assertAlmostEqual(int(srun('ms\n', readlines=1), 16) - start, Δ + 5, delta=5)
     
-    setattr(Time, 'Δmillis()->{}'.format(Δ), test)
+    setattr(Time, 'Δmillis()->{:x}'.format(Δ), test)
 
 class Serial(Shared):
     pass
@@ -130,7 +130,7 @@ for cmd, expected in [
     ('pu 1 a\n', '1\r\n3\r\n'),
     ('pu 7FFFFFFF 10\n', '7FFFFFFF\r\nA\r\n'),
     ('pu 80000000 a\n', '2147483648\r\nC\r\n'),
-    ('pu FFFFFFFF\n', 'FFFFFFFF\r\nA\r\n'),
+    ('pu ffffffff\n', 'FFFFFFFF\r\nA\r\n'),
     
     ('ps Hello\n', 'Hello\r\n7\r\n'),
     ('ps Unicode_☺!\n', 'Unicode_☺!\r\nE\r\n'),
@@ -139,7 +139,7 @@ for cmd, expected in [
     ('pi 00000000 10\n', '0\r\n3\r\n'),
     ('pi 0001 a\n', '1\r\n3\r\n'),
     ('pi 1\n', '1\r\n3\r\n'),
-    ('pi 7FFFFFFF a\n', '2147483647\r\nC\r\n'),
+    ('pi 7fffffff a\n', '2147483647\r\nC\r\n'),
     ('pi 80000000\n', '80000000\r\nA\r\n'),
     ('pi 80000000 a\n', '-2147483648\r\nD\r\n'),
     ('pi FFFFFFFF a\n', '-1\r\n4\r\n'),
@@ -160,7 +160,7 @@ class PinsSim(Shared):
         dummy.assertEqual(target, 'sim', 'not yet implemented for real hardware')
 
 for cmd, expected, pin_value in [
-    ('ar 0\n', '255\r\n', 0xff),
+    ('ar 0\n', 'FF\r\n', 0xff),
     ('ar 3\n', '0\r\n', 0),
     ('ar 7\n', '2\r\n', 2),
     ('dr 8\n', '1\r\n', 1),
@@ -178,7 +178,7 @@ for cmd, expected, pin_value in [
         
         assert_srun(cmd, expected)
     
-    setattr(PinsSim, '{}({})->{}'.format(expand_cmd(cmd), cmd[3], expected[:-2]), test)
+    setattr(PinsSim, '{}({})->{}'.format(expand_cmd(cmd), cmd[3], expected[:-2].lower()), test)
 
 for cmd, pin_value, error in [
     ('aw f 0\n', 0, False),
@@ -201,7 +201,7 @@ for cmd, pin_value, error in [
         if error: assert_error_msg(ereadline(), fname=expand_cmd(cmd))
     
     setattr(PinsSim, '{}({},{}){}'.format(expand_cmd(cmd), cmd[3], cmd[5:-1],
-        '!' if error else '->{}'.format(pin_value)), test)
+        '!' if error else '->{:x}'.format(pin_value)), test)
 
 class PinsFixture(Shared):
     @classmethod
@@ -241,7 +241,7 @@ for pins in [
             time.sleep(1.5)
             
             # In testing, usually saw 1-2% error
-            dummy.assertAlmostEqual(int(srun('ar {}\n'.format(pins[1]), readlines=1)), analog_read, delta=20)
+            dummy.assertAlmostEqual(int(srun('ar {}\n'.format(pins[1]), readlines=1), 16), analog_read, delta=20)
         
         setattr(PinsFixture, 'analogRead/Write({}-{},{})'.format(*pins, pwm), test)
 
@@ -251,11 +251,11 @@ class InvalidPinModes(Shared):
         dummy.assertEqual(target, 'sim', 'Pin modes only enforced on sim')
 
 for cmd, expected in [
-    ('ar 0\n', '-1\r\n'),
+    ('ar 0\n', 'FFFFFFFF\r\n'),
     ('aw 1 0\n', ''),
     ('aw 2 80\n', ''),
     ('aw 3 ff\n', ''),
-    ('dr 7\n', '-1\r\n'),
+    ('dr 7\n', 'FFFFFFFF\r\n'),
     ('dw 8 0\n', ''),
     ('dw a 80\n', ''),
     ('dw f ff\n', ''),
@@ -276,15 +276,15 @@ class EEPROM(Shared):
         dummy.assertEqual(target, 'sim', 'not yet implemented for real hardware')
 
 for cmd, expected in [
-    ('ee 000\n', '255\r\n'),
-    ('ee 001\n', '254\r\n'),
-    ('ee 002\n', '128\r\n'),
-    ('ee 07f\n', '127\r\n'),
-    ('ee 080\n', '64\r\n'),
-    ('ee 0ff\n', '48\r\n'),
-    ('ee 100\n', '32\r\n'),
-    ('ee 1ff\n', '16\r\n'),
-    ('ee 200\n', '15\r\n'),
+    ('ee 000\n', 'FF\r\n'),
+    ('ee 001\n', 'FE\r\n'),
+    ('ee 002\n', '80\r\n'),
+    ('ee 07f\n', '7F\r\n'),
+    ('ee 080\n', '40\r\n'),
+    ('ee 0ff\n', '30\r\n'),
+    ('ee 100\n', '20\r\n'),
+    ('ee 1ff\n', '10\r\n'),
+    ('ee 200\n', 'F\r\n'),
     ('ee 2ff\n', '2\r\n'),
     ('ee 300\n', '1\r\n'),
     ('ee 3ff\n', '0\r\n'),
@@ -293,12 +293,12 @@ for cmd, expected in [
         index = int(cmd.split(' ')[1], 16)
         
         shm_eeprom.seek(index)
-        shm_eeprom.write(bytes([int(expected)]))
-        shm_eeprom.expected[index] = int(expected)
+        shm_eeprom.write(bytes([int(expected, 16)]))
+        shm_eeprom.expected[index] = int(expected, 16)
         
         assert_srun(cmd, expected)
     
-    setattr(EEPROM, 'read_EEPROM[{}]->{}'.format(cmd[3:6], expected[:-2]), test)
+    setattr(EEPROM, 'read_EEPROM[{}]->{}'.format(cmd[3:6], expected[:-2].lower()), test)
 
 for cmd, ee_value in [
     ('ee 000 ff\n', 0xff),
