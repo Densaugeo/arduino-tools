@@ -148,7 +148,7 @@ for cmd, expected in [
     
     setattr(Serial, '{}({})'.format(expand_cmd(cmd), cmd[3:-1]), test)
 
-class Pins(Shared):
+class PinsSim(Shared):
     @classmethod
     def setUpClass(cls):
         dummy.assertEqual(target, 'sim', 'not yet implemented for real hardware')
@@ -172,7 +172,7 @@ for cmd, expected, pin_value in [
         
         assert_srun(cmd, expected)
     
-    setattr(Pins, '{}({})->{}'.format(expand_cmd(cmd), cmd[3], expected[:-2]), test)
+    setattr(PinsSim, '{}({})->{}'.format(expand_cmd(cmd), cmd[3], expected[:-2]), test)
 
 for cmd, pin_value, error in [
     ('aw f 0\n', 0, False),
@@ -194,13 +194,55 @@ for cmd, pin_value, error in [
         
         if error: assert_error_msg(ereadline(), fname=expand_cmd(cmd))
     
-    setattr(Pins, '{}({},{}){}'.format(expand_cmd(cmd), cmd[3], cmd[5:-1],
+    setattr(PinsSim, '{}({},{}){}'.format(expand_cmd(cmd), cmd[3], cmd[5:-1],
         '!' if error else '->{}'.format(pin_value)), test)
+
+class PinsFixture(Shared):
+    @classmethod
+    def setUpClass(cls):
+        dummy.assertEqual(target, 'nano', 'Requires Nano fixture')
+
+for pins in [
+    ('2', '4'),
+    ('7', '8'),
+    ('c', 'd'),
+]:
+    def test(self, pins=pins):
+        # Configure input pin first, to avoid having two outputs shorted
+        srun('pm {1} 0\npm {0} 1\n'.format(*pins))
+        assert_srun('dw {0} 0\ndr {1}\n'.format(*pins), '0\r\n')
+        assert_srun('dw {0} 1\ndr {1}\n'.format(*pins), '1\r\n')
+        
+        srun('pm {0} 0\npm {1} 1\n'.format(*pins))
+        assert_srun('dw {1} 0\ndr {0}\n'.format(*pins), '0\r\n')
+        assert_srun('dw {1} 1\ndr {0}\n'.format(*pins), '1\r\n')
+    
+    setattr(PinsFixture, 'digitalRead/Write({}-{})'.format(*pins), test)
+
+for pins in [
+    ('b', '0'),
+    ('a', '1'),
+]:
+    for pwm, analog_read in [
+        ('00', 0x000),
+        ('80', 0x200),
+        ('ff', 0x3f8), # In testing, 100% duty cycle didn't quite reach 100%
+    ]:
+        def test(self, pins=pins, pwm=pwm, analog_read=analog_read):
+            srun('pm {0} 1\naw {0} {1}\n'.format(pins[0], pwm))
+            
+            # In testing, 1s settling time was not enough
+            time.sleep(1.5)
+            
+            # In testing, usually saw 1-2% error
+            dummy.assertAlmostEqual(int(srun('ar {}\n'.format(pins[1]), readlines=1)), analog_read, delta=20)
+        
+        setattr(PinsFixture, 'analogRead/Write({}-{},{})'.format(*pins, pwm), test)
 
 class InvalidPinModes(Shared):
     @classmethod
     def setUpClass(cls):
-        dummy.assertEqual(target, 'sim', 'not yet implemented for real hardware')
+        dummy.assertEqual(target, 'sim', 'Pin modes only enforced on sim')
 
 for cmd, expected in [
     ('ar 0\n', '-1\r\n'),
