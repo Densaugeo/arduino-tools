@@ -21,8 +21,7 @@ typedef int64_t i64;
 
 // Based on glibc's assert implementation
 extern const char *__progname;
-#define check(expr) (static_cast <bool> (expr) ? false : fprintf(stderr, \
-  "%s: %s:%u: %s: Check `%s' failed.\n", __progname, __FILE__, __LINE__, __PRETTY_FUNCTION__, #expr))
+#define check(expr) (static_cast <bool> (expr) ? false : fprintf(stderr, "%s: %s:%u: %s: Check `%s' failed.\n", __progname, __FILE__, __LINE__, __PRETTY_FUNCTION__, #expr))
 
 u32 millis() {
   timespec result;
