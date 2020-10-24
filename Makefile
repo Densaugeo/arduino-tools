@@ -16,13 +16,17 @@ lint:
 	shellcheck simple-serial.sh
 	shellcheck armock/armock.sh
 
-test-armock: TARGET=sim
-test-armock: SUITE=EEPROM InvalidPinModes PinsSim Serial ShmClearing Time
-test-armock: test/armock nose
+test-arterm: TARGET=armock
+test-arterm: SUITE=EEPROM InvalidPinModes PinsSim Serial ShmClearing Time
+test-arterm: test/armock nose
 
-test-nano: TARGET=nano
-test-nano: SUITE=PinsFixture Serial Time
-test-nano: nose
+test-arterm-nano: TARGET=nano
+test-arterm-nano: SUITE=Serial Time
+test-arterm-nano: nose
+
+test-arterm-fixture: TARGET=nano-fixture
+test-arterm-fixture: SUITE=Serial Time PinsFixture
+test-arterm-fixture: nose
 
 test/armock: armock/armock.cpp arterm/arterm.ino
 	g++ armock/armock.cpp -o test/armock -lrt -D SKETCH='"../arterm/arterm.ino"' -I armock

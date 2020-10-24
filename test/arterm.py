@@ -56,15 +56,15 @@ def setUpModule():
     
     assert 'TARGET' in os.environ, '$TARGET envionment variable not set'
     target = os.environ['TARGET']
-    assert target in ['sim', 'nano'], 'Unknown $TARGET: {}'.format(target)
+    assert target in ['armock', 'nano', 'nano-fixture'], 'Unknown $TARGET: {}'.format(target)
     
-    if target == 'sim':
+    if target == 'armock':
         shm_pins = open('/dev/shm/armock_pins', 'w+b', buffering=0)
         shm_pins.size = 16
         shm_eeprom = open('/dev/shm/armock_eeprom', 'w+b', buffering=0)
         shm_eeprom.size = 1024
     
-    if target == 'nano':
+    if target == 'nano' or target == 'nano-fixture':
         global dut
         nano = serial.Serial(port='/dev/ttyUSB0', baudrate=115200, timeout=1)
         dut = lambda: None
@@ -78,7 +78,7 @@ def tearDownModule():
 
 class Shared(unittest.TestCase):
     def setUp(self, clear_eeprom=True):
-        if target == 'sim':
+        if target == 'armock':
             global dut
             shm_pins.expected = bytearray(shm_pins.size)
             shm_eeprom.expected = bytearray(shm_eeprom.size)
@@ -99,7 +99,7 @@ class Shared(unittest.TestCase):
     def tearDown(self):
         response = srun('ps teardown\n', readlines=2)
         
-        if target == 'sim':
+        if target == 'armock':
             dummy.assertEqual(dut.stderr.readline(), b'')
             self.dut.terminate()
             
@@ -157,7 +157,7 @@ for cmd, expected in [
 class PinsSim(Shared):
     @classmethod
     def setUpClass(cls):
-        dummy.assertEqual(target, 'sim', 'not yet implemented for real hardware')
+        dummy.assertEqual(target, 'armock', 'not yet implemented for real hardware')
 
 for cmd, expected, pin_value in [
     ('ar 0\n', 'FF\r\n', 0xff),
@@ -206,7 +206,7 @@ for cmd, pin_value, error in [
 class PinsFixture(Shared):
     @classmethod
     def setUpClass(cls):
-        dummy.assertEqual(target, 'nano', 'Requires Nano fixture')
+        dummy.assertEqual(target, 'nano-fixture', 'Requires Nano fixture')
 
 for pins in [
     ('2', '4'),
@@ -248,7 +248,7 @@ for pins in [
 class InvalidPinModes(Shared):
     @classmethod
     def setUpClass(cls):
-        dummy.assertEqual(target, 'sim', 'Pin modes only enforced on sim')
+        dummy.assertEqual(target, 'armock', 'Pin modes only enforced on sim')
 
 for cmd, expected in [
     ('ar 0\n', 'FFFFFFFF\r\n'),
@@ -273,7 +273,7 @@ for cmd, expected in [
 class EEPROM(Shared):
     @classmethod
     def setUpClass(cls):
-        dummy.assertEqual(target, 'sim', 'not yet implemented for real hardware')
+        dummy.assertEqual(target, 'armock', 'not yet implemented for real hardware')
 
 for cmd, expected in [
     ('ee 000\n', 'FF\r\n'),
@@ -323,7 +323,7 @@ for cmd, ee_value in [
 class ShmClearing(Shared):
     @classmethod
     def setUpClass(cls):
-        dummy.assertEqual(target, 'sim', 'shm tests do not apply to real hardware')
+        dummy.assertEqual(target, 'armock', 'shm tests do not apply to real hardware')
     
     def setUp(self):
         pass # Overwrite Shared.setUp() to skip it
