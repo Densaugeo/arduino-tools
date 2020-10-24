@@ -10,6 +10,9 @@
 #define MODE_UNDEFINED 0x2
 #define PINS 16
 
+#define DEC 10
+#define HEX 16
+
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -46,11 +49,27 @@ struct SerialMock {
     return ::read(STDIN_FILENO, &byte, 1) < 0 ? -1 : byte;
   }
   
-  size_t print(u32 v        ) { return printf("%u", v); }
-  size_t print(i32 v        ) { return printf("%i", v); }
+  size_t print(u32 v, int base = DEC) {
+    if(base == DEC) return printf("%u", v);
+    if(base == HEX) return printf("%X", v);
+    
+    check(base == DEC || base == HEX);
+    return -1;
+  }
+  
+  size_t print(i32 v, int base = DEC) {
+    if(base == DEC) return printf("%i", v);
+    if(base == HEX) return printf("%X", v);
+    
+    check(base == DEC || base == HEX);
+    return -1;
+  }
+  
   size_t print(const char* v) { return printf("%s", v); }
   
-  template <typename T> size_t println(T v) { return print(v) + print("\r\n"); }
+  size_t println(u32 v, int base = DEC) { return print(v, base) + print("\r\n"); }
+  size_t println(i32 v, int base = DEC) { return print(v, base) + print("\r\n"); }
+  size_t println(const char* v) { return print(v) + print("\r\n"); }
 };
 
 SerialMock Serial;

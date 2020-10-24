@@ -107,7 +107,7 @@ class Shared(unittest.TestCase):
                 shm.seek(0)
                 self.assertEqual(shm.read(), shm.expected)
         
-        self.assertEqual(response, 'teardown\r\n10\r\n')
+        self.assertEqual(response, 'teardown\r\nA\r\n')
 
 class Time(Shared):
     pass
@@ -124,29 +124,35 @@ class Serial(Shared):
     pass
 
 for cmd, expected in [
-    ('pu 0\n', '0\r\n3\r\n'),
-    ('pu 00000000\n', '0\r\n3\r\n'),
+    ('pu 0 10\n', '0\r\n3\r\n'),
+    ('pu 00000000 a\n', '0\r\n3\r\n'),
     ('pu 0001\n', '1\r\n3\r\n'),
-    ('pu 1\n', '1\r\n3\r\n'),
-    ('pu 7FFFFFFF\n', '2147483647\r\n12\r\n'),
-    ('pu 80000000\n', '2147483648\r\n12\r\n'),
-    ('pu FFFFFFFF\n', '4294967295\r\n12\r\n'),
+    ('pu 1 a\n', '1\r\n3\r\n'),
+    ('pu 7FFFFFFF 10\n', '7FFFFFFF\r\nA\r\n'),
+    ('pu 80000000 a\n', '2147483648\r\nC\r\n'),
+    ('pu FFFFFFFF\n', 'FFFFFFFF\r\nA\r\n'),
     
     ('ps Hello\n', 'Hello\r\n7\r\n'),
-    ('ps Unicode_☺!\n', 'Unicode_☺!\r\n14\r\n'),
+    ('ps Unicode_☺!\n', 'Unicode_☺!\r\nE\r\n'),
     
-    ('pi 0\n', '0\r\n3\r\n'),
-    ('pi 00000000\n', '0\r\n3\r\n'),
-    ('pi 0001\n', '1\r\n3\r\n'),
+    ('pi 0 a\n', '0\r\n3\r\n'),
+    ('pi 00000000 10\n', '0\r\n3\r\n'),
+    ('pi 0001 a\n', '1\r\n3\r\n'),
     ('pi 1\n', '1\r\n3\r\n'),
-    ('pi 7FFFFFFF\n', '2147483647\r\n12\r\n'),
-    ('pi 80000000\n', '-2147483648\r\n13\r\n'),
-    ('pi FFFFFFFF\n', '-1\r\n4\r\n'),
+    ('pi 7FFFFFFF a\n', '2147483647\r\nC\r\n'),
+    ('pi 80000000\n', '80000000\r\nA\r\n'),
+    ('pi 80000000 a\n', '-2147483648\r\nD\r\n'),
+    ('pi FFFFFFFF a\n', '-1\r\n4\r\n'),
 ]:
     def test(self, cmd=cmd, expected=expected):
         assert_srun(cmd, expected)
     
-    setattr(Serial, '{}({})'.format(expand_cmd(cmd), cmd[3:-1]), test)
+    cmd = cmd.split()
+    dec_or_hex = ''
+    if len(cmd) == 3 and cmd[2] == 'a': dec_or_hex = ',DEC'
+    if len(cmd) == 3 and cmd[2] == '10': dec_or_hex = ',HEX'
+    
+    setattr(Serial, '{}({}{})'.format(expand_cmd(cmd[0]), cmd[1], dec_or_hex), test)
 
 class PinsSim(Shared):
     @classmethod
