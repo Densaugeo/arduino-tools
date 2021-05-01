@@ -10,7 +10,7 @@ uninstall:
 
 install-dev:
 	python3 -m pip install --user pyserial nose rednose
-	sudo dnf install ShellCheck
+	sudo dnf install inotify-tools ShellCheck
 
 lint:
 	shellcheck simple-serial.sh
@@ -40,3 +40,6 @@ endif
 
 clean:
 	rm -rf test/armock armock/armock test/__pycache__
+
+watch:
+	while true; do make $(ARGS); inotifywait --event modify $(FILE); done
