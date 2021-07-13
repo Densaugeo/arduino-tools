@@ -119,7 +119,7 @@ u8* get_shm(const char* name, u32 size) {
   }
   
   u8* result = (u8*) mmap(0, PINS, PROT_READ | PROT_WRITE, MAP_SHARED, shm_file, 0);
-  if(result < 0) {
+  if(result < (u8*) 0) {
     fprintf(stderr, "Error mapping /dev/shm/");
     perror(name);
     exit(1);
