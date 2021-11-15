@@ -17,25 +17,25 @@ lint:
 	shellcheck armock/armock.sh
 
 test-arterm: TARGET=armock
-test-arterm: SUITE=EEPROM InvalidPinModes PinsSim Serial ShmClearing Time
-test-arterm: test/armock nose
+test-arterm: SUITE=EEPROM or InvalidPinModes or PinsSim or Serial or ShmClearing or Time
+test-arterm: test/armock pytest
 
 test-arterm-nano: TARGET=nano
-test-arterm-nano: SUITE=Serial Time
-test-arterm-nano: nose
+test-arterm-nano: SUITE=Serial or Time
+test-arterm-nano: pytest
 
 test-arterm-fixture: TARGET=nano-fixture
-test-arterm-fixture: SUITE=Serial Time PinsFixture
-test-arterm-fixture: nose
+test-arterm-fixture: SUITE=Serial or Time or PinsFixture
+test-arterm-fixture: pytest
 
 test/armock: armock/armock.cpp arterm/arterm.ino
 	g++ armock/armock.cpp -o test/armock -lrt -D SKETCH='"../arterm/arterm.ino"' -I armock
 
-nose: test/arterm.py
+pytest: test/arterm.py
 ifndef PRETTY
-	python3 -m nose --verbosity=2 --rednose $(addprefix test/arterm.py:,$(SUITE))
+	python3 -m pytest -v -k '$(SUITE)' test/arterm.py
 else
-	python3 -u -m nose --verbosity=2 --rednose --force-color $(addprefix test/arterm.py:,$(SUITE)) 2>&1 | gawk -f test/pretty-printer.awk
+	python3 -u -m pytest -v --color yes -k '$(SUITE)' test/arterm.py 2>&1 | gawk -f test/pretty-printer.awk
 endif
 
 clean:

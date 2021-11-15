@@ -65,7 +65,7 @@ def setUpModule():
         shm_eeprom.size = 1024
     
     if target == 'nano' or target == 'nano-fixture':
-        global dut
+        global dut, nano
         nano = serial.Serial(port='/dev/ttyUSB0', baudrate=115200, timeout=1)
         dut = lambda: None
         setattr(dut, 'stdin', nano)
@@ -74,7 +74,12 @@ def setUpModule():
         dut.stdout.readline() # Will time out
 
 def tearDownModule():
-    pass
+    if target == 'armock':
+        shm_pins.close()
+        shm_eeprom.close()
+    
+    if target == 'nano' or target == 'nano-fixture':
+        nano.close()
 
 class Shared(unittest.TestCase):
     def setUp(self, clear_eeprom=True):
@@ -102,6 +107,10 @@ class Shared(unittest.TestCase):
         if target == 'armock':
             dummy.assertEqual(dut.stderr.readline(), b'')
             self.dut.terminate()
+            self.dut.wait()
+            self.dut.stdin.close()
+            self.dut.stdout.close()
+            self.dut.stderr.close()
             
             for shm in [shm_pins, shm_eeprom]:
                 shm.seek(0)
@@ -118,7 +127,7 @@ for Δ in [50, 100, 200]:
         time.sleep(Δ/1000)
         self.assertAlmostEqual(int(srun('ms\n', readlines=1), 16) - start, Δ + 5, delta=5)
     
-    setattr(Time, 'Δmillis()->{:x}'.format(Δ), test)
+    setattr(Time, 'test_Δmillis()->{:x}'.format(Δ), test)
 
 class Serial(Shared):
     pass
@@ -152,7 +161,7 @@ for cmd, expected in [
     if len(cmd) == 3 and cmd[2] == 'a': dec_or_hex = ',DEC'
     if len(cmd) == 3 and cmd[2] == '10': dec_or_hex = ',HEX'
     
-    setattr(Serial, '{}({}{})'.format(expand_cmd(cmd[0]), cmd[1], dec_or_hex), test)
+    setattr(Serial, 'test_{}({}{})'.format(expand_cmd(cmd[0]), cmd[1], dec_or_hex), test)
 
 class PinsSim(Shared):
     @classmethod
@@ -178,7 +187,7 @@ for cmd, expected, pin_value in [
         
         assert_srun(cmd, expected)
     
-    setattr(PinsSim, '{}({})->{}'.format(expand_cmd(cmd), cmd[3], expected[:-2].lower()), test)
+    setattr(PinsSim, 'test_{}({})->{}'.format(expand_cmd(cmd), cmd[3], expected[:-2].lower()), test)
 
 for cmd, pin_value, error in [
     ('aw f 0\n', 0, False),
@@ -200,7 +209,7 @@ for cmd, pin_value, error in [
         
         if error: assert_error_msg(ereadline(), fname=expand_cmd(cmd))
     
-    setattr(PinsSim, '{}({},{}){}'.format(expand_cmd(cmd), cmd[3], cmd[5:-1],
+    setattr(PinsSim, 'test_{}({},{}){}'.format(expand_cmd(cmd), cmd[3], cmd[5:-1],
         '!' if error else '->{:x}'.format(pin_value)), test)
 
 class PinsFixture(Shared):
@@ -223,7 +232,7 @@ for pins in [
         assert_srun('dw {1} 0\ndr {0}\n'.format(*pins), '0\r\n')
         assert_srun('dw {1} 1\ndr {0}\n'.format(*pins), '1\r\n')
     
-    setattr(PinsFixture, 'digitalRead/Write({}-{})'.format(*pins), test)
+    setattr(PinsFixture, 'test_digitalRead/Write({}-{})'.format(*pins), test)
 
 for pins in [
     ('b', '0'),
@@ -290,7 +299,7 @@ for cmd, expected in [
         assert_srun(cmd, expected)
         assert_error_msg(ereadline(), fname=expand_cmd(cmd))
     
-    setattr(InvalidPinModes, '{}({})!'.format(expand_cmd(cmd), cmd[3:-1].replace(' ', ',')), test)
+    setattr(InvalidPinModes, 'test_{}({})!'.format(expand_cmd(cmd), cmd[3:-1].replace(' ', ',')), test)
 
 class EEPROM(Shared):
     @classmethod
@@ -320,7 +329,7 @@ for cmd, expected in [
         
         assert_srun(cmd, expected)
     
-    setattr(EEPROM, 'read_EEPROM[{}]->{}'.format(cmd[3:6], expected[:-2].lower()), test)
+    setattr(EEPROM, 'test_read_EEPROM[{}]->{}'.format(cmd[3:6], expected[:-2].lower()), test)
 
 for cmd, ee_value in [
     ('ee 000 ff\n', 0xff),

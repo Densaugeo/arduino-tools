@@ -1,4 +1,8 @@
-/\(arterm.[A-Za-z_]+\) .../ {
+/test\/[A-Za-z_]+.py::/ {
+  # Remove 'test' since it's in every test name
+  gsub(/test\//, "", $1);
+  gsub(/test_/, "", $1);
+  
   # Add spacing and yellow color to [foo]
   non_printing = 5*gsub(/\[/, " [\x1B[93m", $1);
   non_printing += 4*gsub(/\]/, "\x1B[0m]", $1);
@@ -22,7 +26,7 @@
   
   gsub(",", ", ", $1);
   
-  printf("%-*s\x1B[0m", 32 + non_printing, $1);
+  printf("%-*s\x1B[0m", 65 + non_printing, $1);
   $1="";
   print $0;
   next;
