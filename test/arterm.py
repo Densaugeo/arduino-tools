@@ -230,18 +230,40 @@ for pins in [
     ('a', '1'),
 ]:
     for pwm, analog_read in [
-        ('00', 0x000),
+        ('00', 0x008), # In testing, 0% duty cycle didn't quite reach 0%
         ('80', 0x200),
         ('ff', 0x3f8), # In testing, 100% duty cycle didn't quite reach 100%
     ]:
         def test(self, pins=pins, pwm=pwm, analog_read=analog_read):
             srun('pm {0} 1\naw {0} {1}\n'.format(pins[0], pwm))
             
-            # In testing, 1s settling time was not enough
+            # Time constant is 0.22 Hz. In testing, 1 s settling time was not enough
             time.sleep(1.5)
             
-            # In testing, usually saw 1-2% error
-            dummy.assertAlmostEqual(int(srun('ar {}\n'.format(pins[1]), readlines=1), 16), analog_read, delta=20)
+            '''
+            Theoretical variation is:
+            - 100 kΩ resistor
+            - For 5 V nano, 2.5 V difference between capacitor and driving pin
+            - 2.5 V / 100 kΩ = 25 mA driving current
+            - 2 ms PWM period for these pins on Arduino nano
+            - 2 ms * 25 mA = 50 nC variability in capacitor charge
+            - 2.2 μF capacitor
+            - 50 nC / 2.2 μF = 22.7 mV variability in capacitor voltage
+            - At ~5 mV / unit for analog pins, this is ±2 units
+            
+            Test results (using 1.5 s settling time):
+            
+            Pins   Expected  Deltas
+            D10-A1 0x000     + 4  + 4  + 7  + 7  + 8  + 7  + 7  + 8  + 6  + 7
+            D10-A1 0x200     - 2  - 3  - 2  - 2  - 2  - 1  - 2  - 3  - 2  - 2
+            D10-A1 0x3ff     - 6  - 5  - 4  - 5  - 5  - 5  - 4  - 5  - 5  - 5
+            D11-A0 0x000     + 5  + 5  + 9  + 9  +10  +11  +10  + 9  + 9  +11
+            D11-A0 0x200     - 4  - 2  - 2  - 3  - 2  - 4  - 3  - 4  - 1  - 2
+            D11-A0 0x3ff     - 8  - 8  - 7  - 7  - 7  - 7  - 7  - 7  - 6  - 8
+            
+            For the mid voltage, variation is -1 to -4, comparable in range to theory
+            '''
+            dummy.assertAlmostEqual(int(srun('ar {}\n'.format(pins[1]), readlines=1), 16), analog_read, delta=4)
         
         setattr(PinsFixture, 'analogRead/Write({}-{},{})'.format(*pins, pwm), test)
 
