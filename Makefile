@@ -9,7 +9,7 @@ uninstall:
 	rm /usr/bin/armock
 
 install-dev:
-	python3 -m pip install --user pyserial nose rednose
+	python3 -m pip install --user pyserial pytest
 	sudo dnf install inotify-tools ShellCheck
 
 lint:
