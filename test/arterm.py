@@ -116,7 +116,7 @@ class Shared(unittest.TestCase):
                 shm.seek(0)
                 self.assertEqual(shm.read(), shm.expected)
         
-        self.assertEqual(response, 'teardown\r\nA\r\n')
+        self.assertEqual(response, 'teardown\r\n10\r\n')
 
 class Time(Shared):
     pass
@@ -133,33 +133,33 @@ class Serial(Shared):
     pass
 
 for cmd, expected in [
-    ('pu 0 10\n', '0\r\n3\r\n'),
-    ('pu 00000000 a\n', '0\r\n3\r\n'),
+    ('pu 0 16\n', '0\r\n3\r\n'),
+    ('pu 00000000 10\n', '0\r\n3\r\n'),
     ('pu 0001\n', '1\r\n3\r\n'),
-    ('pu 1 a\n', '1\r\n3\r\n'),
-    ('pu 7FFFFFFF 10\n', '7FFFFFFF\r\nA\r\n'),
-    ('pu 80000000 a\n', '2147483648\r\nC\r\n'),
-    ('pu ffffffff\n', 'FFFFFFFF\r\nA\r\n'),
+    ('pu 1 10\n', '1\r\n3\r\n'),
+    ('pu 0x7FFFFFFF 16\n', '7FFFFFFF\r\n10\r\n'),
+    ('pu 0x80000000 10\n', '2147483648\r\n12\r\n'),
+    ('pu 0xffffffff\n', '4294967295\r\n12\r\n'),
     
     ('ps Hello\n', 'Hello\r\n7\r\n'),
-    ('ps Unicode_☺!\n', 'Unicode_☺!\r\nE\r\n'),
+    ('ps Unicode_☺!\n', 'Unicode_☺!\r\n14\r\n'),
     
-    ('pi 0 a\n', '0\r\n3\r\n'),
-    ('pi 00000000 10\n', '0\r\n3\r\n'),
-    ('pi 0001 a\n', '1\r\n3\r\n'),
+    ('pi 0 10\n', '0\r\n3\r\n'),
+    ('pi 00000000 16\n', '0\r\n3\r\n'),
+    ('pi 0001 10\n', '1\r\n3\r\n'),
     ('pi 1\n', '1\r\n3\r\n'),
-    ('pi 7fffffff a\n', '2147483647\r\nC\r\n'),
-    ('pi 80000000\n', '80000000\r\nA\r\n'),
-    ('pi 80000000 a\n', '-2147483648\r\nD\r\n'),
-    ('pi FFFFFFFF a\n', '-1\r\n4\r\n'),
+    ('pi 0x7fffffff 10\n', '2147483647\r\n12\r\n'),
+    ('pi 0x80000000 16\n', '80000000\r\n10\r\n'),
+    ('pi 0x80000000\n', '-2147483648\r\n13\r\n'),
+    ('pi 0xFFFFFFFF 10\n', '-1\r\n4\r\n'),
 ]:
     def test(self, cmd=cmd, expected=expected):
         assert_srun(cmd, expected)
     
     cmd = cmd.split()
     dec_or_hex = ''
-    if len(cmd) == 3 and cmd[2] == 'a': dec_or_hex = ',DEC'
-    if len(cmd) == 3 and cmd[2] == '10': dec_or_hex = ',HEX'
+    if len(cmd) == 3 and cmd[2] == '10': dec_or_hex = ',DEC'
+    if len(cmd) == 3 and cmd[2] == '16': dec_or_hex = ',HEX'
     
     setattr(Serial, 'test_{}({}{})'.format(expand_cmd(cmd[0]), cmd[1], dec_or_hex), test)
 
@@ -169,17 +169,17 @@ class PinsSim(Shared):
         dummy.assertEqual(target, 'armock', 'not yet implemented for real hardware')
 
 for cmd, expected, pin_value in [
-    ('ar 0\n', 'FF\r\n', 0xff),
+    ('ar 0\n', '255\r\n', 0xff),
     ('ar 3\n', '0\r\n', 0),
     ('ar 7\n', '2\r\n', 2),
     ('dr 8\n', '1\r\n', 1),
     ('dr 9\n', '1\r\n', 4),
-    ('dr b\n', '1\r\n', 0xff),
-    ('dr f\n', '0\r\n', 0),
+    ('dr 13\n', '1\r\n', 0xff),
+    ('dr 15\n', '0\r\n', 0),
 ]:
     def test(self, cmd=cmd, expected=expected, pin_value=pin_value):
-        pin = int(cmd.split(' ')[1], 16)
-        srun('pm {:x} 0\n'.format(pin))
+        pin = int(cmd.split(' ')[1])
+        srun('pm {} 0\n'.format(pin))
         
         shm_pins.seek(pin)
         shm_pins.write(bytes([pin_value]))
@@ -187,29 +187,29 @@ for cmd, expected, pin_value in [
         
         assert_srun(cmd, expected)
     
-    setattr(PinsSim, 'test_{}({})->{}'.format(expand_cmd(cmd), cmd[3], expected[:-2].lower()), test)
+    setattr(PinsSim, 'test_{}({})->{}'.format(expand_cmd(cmd), cmd[3:-1], expected[:-2].lower()), test)
 
 for cmd, pin_value, error in [
-    ('aw f 0\n', 0, False),
-    ('aw d 1\n', 1, False),
-    ('aw c 7f\n', 0x7f, False),
-    ('aw 8 ff\n', 0xff, False),
+    ('aw 15 0\n', 0, False),
+    ('aw 13 1\n', 1, False),
+    ('aw 12 0x7f\n', 0x7f, False),
+    ('aw 8 0xff\n', 0xff, False),
     ('dw 7 0\n', 0, False),
     ('dw 4 1\n', 0xff, False),
     ('dw 2 2\n', 0, True),
-    ('dw 1 80\n', 0, True),
-    ('dw 0 ff\n', 0, True),
+    ('dw 1 0x80\n', 0, True),
+    ('dw 0 0xff\n', 0, True),
 ]:
     def test(self, cmd=cmd, pin_value=pin_value, error=error):
-        pin = int(cmd.split(' ')[1], 16)
-        srun('pm {:x} 1\n'.format(pin))
+        pin = int(cmd.split(' ')[1])
+        srun('pm {} 1\n'.format(pin))
         
         srun(cmd)
         shm_pins.expected[pin] = pin_value
         
         if error: assert_error_msg(ereadline(), fname=expand_cmd(cmd))
     
-    setattr(PinsSim, 'test_{}({},{}){}'.format(expand_cmd(cmd), cmd[3], cmd[5:-1],
+    setattr(PinsSim, 'test_{}({},{}){}'.format(expand_cmd(cmd), cmd.split(' ')[1], cmd.split(' ')[2][:-1],
         '!' if error else '->{:x}'.format(pin_value)), test)
 
 class PinsFixture(Shared):
@@ -220,7 +220,7 @@ class PinsFixture(Shared):
 for pins in [
     ('2', '4'),
     ('7', '8'),
-    ('c', 'd'),
+    ('12', '13'),
 ]:
     def test(self, pins=pins):
         # Configure input pin first, to avoid having two outputs shorted
@@ -235,13 +235,13 @@ for pins in [
     setattr(PinsFixture, 'test_digitalRead/Write({}-{})'.format(*pins), test)
 
 for pins in [
-    ('b', '0'),
-    ('a', '1'),
+    ('11', '0'),
+    ('10', '1'),
 ]:
     for pwm, analog_read in [
-        ('00', 0x008), # In testing, 0% duty cycle didn't quite reach 0%
-        ('80', 0x200),
-        ('ff', 0x3f8), # In testing, 100% duty cycle didn't quite reach 100%
+        ('0x00', 0x008), # In testing, 0% duty cycle didn't quite reach 0%
+        ('0x80', 0x200),
+        ('0xff', 0x3f8), # In testing, 100% duty cycle didn't quite reach 100%
     ]:
         def test(self, pins=pins, pwm=pwm, analog_read=analog_read):
             srun('pm {0} 1\naw {0} {1}\n'.format(pins[0], pwm))
@@ -272,7 +272,7 @@ for pins in [
             
             For the mid voltage, variation is -1 to -4, comparable in range to theory
             '''
-            dummy.assertAlmostEqual(int(srun('ar {}\n'.format(pins[1]), readlines=1), 16), analog_read, delta=4)
+            dummy.assertAlmostEqual(int(srun('ar {}\n'.format(pins[1]), readlines=1)), analog_read, delta=4)
         
         setattr(PinsFixture, 'test_analogRead/Write({}-{},{})'.format(*pins, pwm), test)
 
@@ -282,18 +282,18 @@ class InvalidPinModes(Shared):
         dummy.assertEqual(target, 'armock', 'Pin modes only enforced on sim')
 
 for cmd, expected in [
-    ('ar 0\n', 'FFFFFFFF\r\n'),
+    ('ar 0\n', '-1\r\n'),
     ('aw 1 0\n', ''),
-    ('aw 2 80\n', ''),
-    ('aw 3 ff\n', ''),
-    ('dr 7\n', 'FFFFFFFF\r\n'),
+    ('aw 2 0x80\n', ''),
+    ('aw 3 0xff\n', ''),
+    ('dr 7\n', '-1\r\n'),
     ('dw 8 0\n', ''),
-    ('dw a 80\n', ''),
-    ('dw f ff\n', ''),
+    ('dw 10 0x80\n', ''),
+    ('dw 15 0xff\n', ''),
     ('pm 0 2\n', ''),
-    ('pm e ff\n', ''),
-    ('pm f 10\n', ''),
-    ('pm 10 0\n', ''),
+    ('pm 14 0xff\n', ''),
+    ('pm 15 0x10\n', ''),
+    ('pm 16 0\n', ''),
 ]:
     def test(self, cmd=cmd, expected=expected):
         assert_srun(cmd, expected)
@@ -307,43 +307,43 @@ class EEPROM(Shared):
         dummy.assertEqual(target, 'armock', 'not yet implemented for real hardware')
 
 for cmd, expected in [
-    ('ee 000\n', 'FF\r\n'),
-    ('ee 001\n', 'FE\r\n'),
-    ('ee 002\n', '80\r\n'),
-    ('ee 07f\n', '7F\r\n'),
-    ('ee 080\n', '40\r\n'),
-    ('ee 0ff\n', '30\r\n'),
-    ('ee 100\n', '20\r\n'),
-    ('ee 1ff\n', '10\r\n'),
-    ('ee 200\n', 'F\r\n'),
-    ('ee 2ff\n', '2\r\n'),
-    ('ee 300\n', '1\r\n'),
-    ('ee 3ff\n', '0\r\n'),
+    ('ee 0x000\n', '255\r\n'),
+    ('ee 0x001\n', '254\r\n'),
+    ('ee 0x002\n', '128\r\n'),
+    ('ee 0x07f\n', '127\r\n'),
+    ('ee 0x080\n', '64\r\n'),
+    ('ee 0x0ff\n', '48\r\n'),
+    ('ee 0x100\n', '32\r\n'),
+    ('ee 0x1ff\n', '16\r\n'),
+    ('ee 0x200\n', '15\r\n'),
+    ('ee 0x2ff\n', '2\r\n'),
+    ('ee 0x300\n', '1\r\n'),
+    ('ee 0x3ff\n', '0\r\n'),
 ]:
     def test(self, cmd=cmd, expected=expected):
         index = int(cmd.split(' ')[1], 16)
         
         shm_eeprom.seek(index)
-        shm_eeprom.write(bytes([int(expected, 16)]))
-        shm_eeprom.expected[index] = int(expected, 16)
+        shm_eeprom.write(bytes([int(expected)]))
+        shm_eeprom.expected[index] = int(expected)
         
         assert_srun(cmd, expected)
     
-    setattr(EEPROM, 'test_read_EEPROM[{}]->{}'.format(cmd[3:6], expected[:-2].lower()), test)
+    setattr(EEPROM, 'test_read_EEPROM[{}]->{}'.format(cmd[3:8], expected[:-2]), test)
 
 for cmd, ee_value in [
-    ('ee 000 ff\n', 0xff),
-    ('ee 001 fe\n', 0xfe),
-    ('ee 002 80\n', 0x80),
-    ('ee 07f 7f\n', 0x7f),
-    ('ee 080 40\n', 0x40),
-    ('ee 0ff 30\n', 0x30),
-    ('ee 100 20\n', 0x20),
-    ('ee 1ff 10\n', 0x10),
-    ('ee 200 0f\n', 0x0f),
-    ('ee 2ff 02\n', 0x02),
-    ('ee 300 01\n', 0x01),
-    ('ee 3ff 00\n', 0x00),
+    ('ee 0x000 0xff\n', 0xff),
+    ('ee 0x001 0xfe\n', 0xfe),
+    ('ee 0x002 0x80\n', 0x80),
+    ('ee 0x07f 0x7f\n', 0x7f),
+    ('ee 0x080 0x40\n', 0x40),
+    ('ee 0x0ff 0x30\n', 0x30),
+    ('ee 0x100 0x20\n', 0x20),
+    ('ee 0x1ff 0x10\n', 0x10),
+    ('ee 0x200 0x0f\n', 0x0f),
+    ('ee 0x2ff 0x02\n', 0x02),
+    ('ee 0x300 0x01\n', 0x01),
+    ('ee 0x3ff 0x00\n', 0x00),
 ]:
     def test(self, cmd=cmd, ee_value=ee_value):
         srun(cmd)

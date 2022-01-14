@@ -53,6 +53,3 @@ clean:
 
 watch:
 	while true; do make $(ARGS); inotifywait --event modify $(FILE); done
-
-
-# 

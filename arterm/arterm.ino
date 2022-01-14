@@ -25,21 +25,21 @@ void process_line() {
   
   for(u8 i = 0; i < 2; ++i) {
     args[i] = strtok(NULL, DELIMITERS);
-    if(args[i] != NULL) args_u32[i] = (u32) strtoul(args[i], NULL, 16);
+    if(args[i] != NULL) args_u32[i] = (u32) strtoul(args[i], NULL, 0);
   }
   
   if(args[0] == NULL) {
     if(strcmp(command, "ms") == 0) Serial.println(millis(), HEX);
   } else if(args[1] == NULL) {
-    if(strcmp(command, "ps") == 0) Serial.println((u32) Serial.println(args[0]), HEX);
-    if(strcmp(command, "pu") == 0) Serial.println((u32) Serial.println(args_u32[0], HEX), HEX);
-    if(strcmp(command, "pi") == 0) Serial.println((u32) Serial.println((int32_t) args_u32[0], HEX), HEX);
-    if(strcmp(command, "dr") == 0) Serial.println(digitalRead(args_u32[0]), HEX);
-    if(strcmp(command, "ar") == 0) Serial.println(analogRead(args_u32[0]), HEX);
-    if(strcmp(command, "ee") == 0) Serial.println(EEPROM[args_u32[0]], HEX);
+    if(strcmp(command, "ps") == 0) Serial.println((u32) Serial.println(args[0]));
+    if(strcmp(command, "pu") == 0) Serial.println((u32) Serial.println(args_u32[0]));
+    if(strcmp(command, "pi") == 0) Serial.println((u32) Serial.println((int32_t) args_u32[0]));
+    if(strcmp(command, "dr") == 0) Serial.println(digitalRead(args_u32[0]));
+    if(strcmp(command, "ar") == 0) Serial.println(analogRead(args_u32[0]));
+    if(strcmp(command, "ee") == 0) Serial.println(EEPROM[args_u32[0]]);
   } else {
-    if(strcmp(command, "pu") == 0) Serial.println((u32) Serial.println(args_u32[0], args_u32[1]), HEX);
-    if(strcmp(command, "pi") == 0) Serial.println((u32) Serial.println((int32_t) args_u32[0], args_u32[1]), HEX);
+    if(strcmp(command, "pu") == 0) Serial.println((u32) Serial.println(args_u32[0], args_u32[1]));
+    if(strcmp(command, "pi") == 0) Serial.println((u32) Serial.println((int32_t) args_u32[0], args_u32[1]));
     if(strcmp(command, "pm") == 0) pinMode(args_u32[0], args_u32[1]);
     if(strcmp(command, "dw") == 0) digitalWrite(args_u32[0], args_u32[1]);
     if(strcmp(command, "aw") == 0) analogWrite(args_u32[0], args_u32[1]);
