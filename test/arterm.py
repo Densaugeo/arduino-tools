@@ -349,7 +349,7 @@ for cmd, ee_value in [
         srun(cmd)
         shm_eeprom.expected[int(cmd.split(' ')[1], 16)] = ee_value
     
-    setattr(EEPROM, 'write_EEPROM[{}]->{:x}'.format(cmd[3:6], ee_value), test)
+    setattr(EEPROM, 'test_write_EEPROM[{}]->{:x}'.format(cmd[3:8], ee_value), test)
 
 class ShmClearing(Shared):
     @classmethod
