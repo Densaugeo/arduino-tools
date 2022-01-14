@@ -274,7 +274,7 @@ for pins in [
             '''
             dummy.assertAlmostEqual(int(srun('ar {}\n'.format(pins[1]), readlines=1), 16), analog_read, delta=4)
         
-        setattr(PinsFixture, 'analogRead/Write({}-{},{})'.format(*pins, pwm), test)
+        setattr(PinsFixture, 'test_analogRead/Write({}-{},{})'.format(*pins, pwm), test)
 
 class InvalidPinModes(Shared):
     @classmethod
