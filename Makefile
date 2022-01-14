@@ -11,6 +11,8 @@ uninstall:
 install-dev:
 	python3 -m pip install --user pyserial pytest
 	sudo dnf install inotify-tools ShellCheck
+	arduino-cli core update-index
+	arduino-cli core install arduino-avr
 
 lint:
 	shellcheck simple-serial.sh
@@ -38,8 +40,19 @@ else
 	python3 -u -m pytest -v --color yes -k '$(SUITE)' test/arterm.py 2>&1 | gawk -f test/pretty-printer.awk
 endif
 
+upload: arterm/arterm.ino
+ifndef PORT
+	# PORT must be specified
+else
+	arduino-cli compile --fqbn arduino:avr:nano:cpu=atmega328old arterm/arterm.ino
+	arduino-cli upload --port $(PORT) --fqbn arduino:avr:nano:cpu=atmega328old arterm/arterm.ino
+endif
+
 clean:
 	rm -rf test/armock armock/armock test/__pycache__
 
 watch:
 	while true; do make $(ARGS); inotifywait --event modify $(FILE); done
+
+
+# 
