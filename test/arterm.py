@@ -132,36 +132,63 @@ for Δ in [50, 100, 200]:
 class Serial(Shared):
     pass
 
+# NOTE Integers of 2^32 and larger cannot be tested, because the Arduino and gcc implementations of strtoul
+# handle them differently
 for cmd, expected in [
-    ('pu 0 16\n', '0\r\n3\r\n'),
-    ('pu 00000000 10\n', '0\r\n3\r\n'),
-    ('pu 0001\n', '1\r\n3\r\n'),
-    ('pu 1 10\n', '1\r\n3\r\n'),
-    ('pu 0x7FFFFFFF 16\n', '7FFFFFFF\r\n10\r\n'),
-    ('pu 0x80000000 10\n', '2147483648\r\n12\r\n'),
+    ('pu -0x100 16\n', 'FFFFFF00\r\n10\r\n'),
+    ('pu -0x1 16\n', 'FFFFFFFF\r\n10\r\n'),
+    ('pu 0x0 16\n', '0\r\n3\r\n'),
+    ('pu 0x1 16\n', '1\r\n3\r\n'),
+    ('pu 0x7fffffff 16\n', '7FFFFFFF\r\n10\r\n'),
+    ('pu 0x80000000 16\n', '80000000\r\n10\r\n'),
+    ('pu 0xffffffff 16\n', 'FFFFFFFF\r\n10\r\n'),
+    
+    ('pu -0x100\n', '4294967040\r\n12\r\n'),
+    ('pu -0x1\n', '4294967295\r\n12\r\n'),
+    ('pu 0x0\n', '0\r\n3\r\n'),
+    ('pu 0x1\n', '1\r\n3\r\n'),
+    ('pu 0x7fffffff\n', '2147483647\r\n12\r\n'),
+    ('pu 0x80000000\n', '2147483648\r\n12\r\n'),
     ('pu 0xffffffff\n', '4294967295\r\n12\r\n'),
     
-    ('ps Hello\n', 'Hello\r\n7\r\n'),
-    ('ps Unicode_☺!\n', 'Unicode_☺!\r\n14\r\n'),
-    
+    ('pi -256 10\n', '-256\r\n6\r\n'),
+    ('pi -1 10\n', '-1\r\n4\r\n'),
     ('pi 0 10\n', '0\r\n3\r\n'),
-    ('pi 00000000 16\n', '0\r\n3\r\n'),
-    ('pi 0001 10\n', '1\r\n3\r\n'),
-    ('pi 1\n', '1\r\n3\r\n'),
-    ('pi 0x7fffffff 10\n', '2147483647\r\n12\r\n'),
-    ('pi 0x80000000 16\n', '80000000\r\n10\r\n'),
-    ('pi 0x80000000\n', '-2147483648\r\n13\r\n'),
-    ('pi 0xFFFFFFFF 10\n', '-1\r\n4\r\n'),
+    ('pi 1 10\n', '1\r\n3\r\n'),
+    ('pi 2147483647 10\n', '2147483647\r\n12\r\n'),
+    ('pi 2147483648 10\n', '-2147483648\r\n13\r\n'),
+    ('pi 4294967295 10\n', '-1\r\n4\r\n'),
+    
+    ('pi -0400 16\n', 'FFFFFF00\r\n10\r\n'),
+    ('pi -01 16\n', 'FFFFFFFF\r\n10\r\n'),
+    ('pi 00 16\n', '0\r\n3\r\n'),
+    ('pi 01 16\n', '1\r\n3\r\n'),
+    ('pi 017777777777 16\n', '7FFFFFFF\r\n10\r\n'),
+    ('pi 020000000000 16\n', '80000000\r\n10\r\n'),
+    ('pi 037777777777 16\n', 'FFFFFFFF\r\n10\r\n'),
+    
+    ('pu\n', ''),
+    ('pu foo\n', ''),
+    ('pu bar 10\n', ''),
+    ('pu 133 foos\n', ''),
+    ('pu 1 16 3\n', ''),
+    
+    ('ps\n', ''),
+    ('ps    \n', ''),
+    ('ps Hello\n', 'Hello\r\n7\r\n'),
+    ('ps Unicode_☺\n', 'Unicode_☺\r\n13\r\n'),
+    ('ps foo bar   \n', ''),
 ]:
     def test(self, cmd=cmd, expected=expected):
         assert_srun(cmd, expected)
     
     cmd = cmd.split()
-    dec_or_hex = ''
-    if len(cmd) == 3 and cmd[2] == '10': dec_or_hex = ',DEC'
-    if len(cmd) == 3 and cmd[2] == '16': dec_or_hex = ',HEX'
     
-    setattr(Serial, 'test_{}({}{})'.format(expand_cmd(cmd[0]), cmd[1], dec_or_hex), test)
+    setattr(Serial, 'test_{}({}){}'.format(
+        expand_cmd(cmd[0]),
+        ','.join(cmd[1:]) if len(cmd) > 1 else '',
+        '->' + expected.split()[0] if expected else '!',
+    ), test)
 
 class PinsSim(Shared):
     @classmethod
