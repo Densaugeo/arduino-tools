@@ -172,6 +172,7 @@ for cmd, expected in [
     ('pu bar 10\n', ''),
     ('pu 133 foos\n', ''),
     ('pu 1 16 3\n', ''),
+    ('pu 123foo\n', ''),
     
     ('ps\n', ''),
     ('ps    \n', ''),
@@ -333,50 +334,50 @@ class EEPROM(Shared):
     def setUpClass(cls):
         dummy.assertEqual(target, 'armock', 'not yet implemented for real hardware')
 
-for cmd, expected in [
-    ('ee 0x000\n', '255\r\n'),
-    ('ee 0x001\n', '254\r\n'),
-    ('ee 0x002\n', '128\r\n'),
-    ('ee 0x07f\n', '127\r\n'),
-    ('ee 0x080\n', '64\r\n'),
-    ('ee 0x0ff\n', '48\r\n'),
-    ('ee 0x100\n', '32\r\n'),
-    ('ee 0x1ff\n', '16\r\n'),
-    ('ee 0x200\n', '15\r\n'),
-    ('ee 0x2ff\n', '2\r\n'),
-    ('ee 0x300\n', '1\r\n'),
-    ('ee 0x3ff\n', '0\r\n'),
+# NOTE Arduino allows reading and writing address outside the valid range, in which case they wrap around.
+# However, I do not know a good way to reproduce that in C++, so armock doesn't support it
+for cmd, index, expected in [
+    ('ee   0x0\n', 0x000, '255\r\n'),
+    ('ee     1\n', 0x001, '254\r\n'),
+    ('ee    02\n', 0x002, '128\r\n'),
+    ('ee 0x07f\n', 0x07f, '127\r\n'),
+    ('ee   128\n', 0x080, '64\r\n'),
+    ('ee  0377\n', 0x0ff, '48\r\n'),
+    ('ee 0x100\n', 0x100, '32\r\n'),
+    ('ee   511\n', 0x1ff, '16\r\n'),
+    ('ee 01000\n', 0x200, '15\r\n'),
+    ('ee 0x2ff\n', 0x2ff, '2\r\n'),
+    ('ee   768\n', 0x300, '1\r\n'),
+    ('ee 01777\n', 0x3ff, '0\r\n'),
 ]:
-    def test(self, cmd=cmd, expected=expected):
-        index = int(cmd.split(' ')[1], 16)
-        
+    def test(self, cmd=cmd, index=index, expected=expected):
         shm_eeprom.seek(index)
         shm_eeprom.write(bytes([int(expected)]))
         shm_eeprom.expected[index] = int(expected)
         
         assert_srun(cmd, expected)
     
-    setattr(EEPROM, 'test_read_EEPROM[{}]->{}'.format(cmd[3:8], expected[:-2]), test)
+    setattr(EEPROM, 'test_read_EEPROM[{}]->{}'.format(cmd.split()[1], expected[:-2]), test)
 
-for cmd, ee_value in [
-    ('ee 0x000 0xff\n', 0xff),
-    ('ee 0x001 0xfe\n', 0xfe),
-    ('ee 0x002 0x80\n', 0x80),
-    ('ee 0x07f 0x7f\n', 0x7f),
-    ('ee 0x080 0x40\n', 0x40),
-    ('ee 0x0ff 0x30\n', 0x30),
-    ('ee 0x100 0x20\n', 0x20),
-    ('ee 0x1ff 0x10\n', 0x10),
-    ('ee 0x200 0x0f\n', 0x0f),
-    ('ee 0x2ff 0x02\n', 0x02),
-    ('ee 0x300 0x01\n', 0x01),
-    ('ee 0x3ff 0x00\n', 0x00),
+for cmd, index, ee_value in [
+    ('ee   0x0  255\n', 0x000, 0xff),
+    ('ee     1 0376\n', 0x001, 0xfe),
+    ('ee    02 0x80\n', 0x002, 0x80),
+    ('ee 0x07f  127\n', 0x07f, 0x7f),
+    ('ee   128 0100\n', 0x080, 0x40),
+    ('ee  0377 0x30\n', 0x0ff, 0x30),
+    ('ee 0x100   32\n', 0x100, 0x20),
+    ('ee   511  020\n', 0x1ff, 0x10),
+    ('ee 01000 0x0f\n', 0x200, 0x0f),
+    ('ee 0x2ff    2\n', 0x2ff, 0x02),
+    ('ee   768   01\n', 0x300, 0x01),
+    ('ee 01777  0x0\n', 0x3ff, 0x00),
 ]:
-    def test(self, cmd=cmd, ee_value=ee_value):
+    def test(self, cmd=cmd, index=index, ee_value=ee_value):
         srun(cmd)
-        shm_eeprom.expected[int(cmd.split(' ')[1], 16)] = ee_value
+        shm_eeprom.expected[index] = ee_value
     
-    setattr(EEPROM, 'test_write_EEPROM[{}]->{:x}'.format(cmd[3:8], ee_value), test)
+    setattr(EEPROM, 'test_write_EEPROM[{}]->{}'.format(cmd.split()[1], ee_value), test)
 
 class ShmClearing(Shared):
     @classmethod
