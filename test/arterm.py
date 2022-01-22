@@ -60,7 +60,7 @@ def setUpModule():
     
     if target == 'armock':
         shm_pins = open('/dev/shm/armock_pins', 'w+b', buffering=0)
-        shm_pins.size = 16
+        shm_pins.size = 32
         shm_eeprom = open('/dev/shm/armock_eeprom', 'w+b', buffering=0)
         shm_eeprom.size = 1024
     
@@ -194,7 +194,7 @@ for cmd, expected in [
 class PinsSim(Shared):
     @classmethod
     def setUpClass(cls):
-        dummy.assertEqual(target, 'armock', 'not yet implemented for real hardware')
+        dummy.assertEqual(target, 'armock', 'Not yet implemented for real hardware')
 
 for cmd, expected, pin_value in [
     ('ar 0\n', '255\r\n', 0xff),
@@ -218,9 +218,9 @@ for cmd, expected, pin_value in [
     setattr(PinsSim, 'test_{}({})->{}'.format(expand_cmd(cmd), cmd[3:-1], expected[:-2].lower()), test)
 
 for cmd, pin_value, error in [
-    ('aw 15 0\n', 0, False),
-    ('aw 13 1\n', 1, False),
-    ('aw 12 0x7f\n', 0x7f, False),
+    ('aw 31 0\n', 0, False),
+    ('aw 16 1\n', 1, False),
+    ('aw 15 0x7f\n', 0x7f, False),
     ('aw 8 0xff\n', 0xff, False),
     ('dw 7 0\n', 0, False),
     ('dw 4 1\n', 0xff, False),
@@ -300,7 +300,7 @@ for pins in [
             
             For the mid voltage, variation is -1 to -4, comparable in range to theory
             '''
-            dummy.assertAlmostEqual(int(srun('ar {}\n'.format(pins[1]), readlines=1)), analog_read, delta=4)
+            dummy.assertAlmostEqual(int(srun('pm {0} 0\nar {0}\n'.format(pins[1]), readlines=1)), analog_read, delta=4)
         
         setattr(PinsFixture, 'test_analogRead/Write({}-{},{})'.format(*pins, pwm), test)
 
@@ -315,13 +315,13 @@ for cmd, expected in [
     ('aw 2 0x80\n', ''),
     ('aw 3 0xff\n', ''),
     ('dr 7\n', '-1\r\n'),
-    ('dw 8 0\n', ''),
-    ('dw 10 0x80\n', ''),
-    ('dw 15 0xff\n', ''),
+    ('dw 15 0\n', ''),
+    ('dw 16 0x80\n', ''),
+    ('dw 31 0xff\n', ''),
     ('pm 0 2\n', ''),
-    ('pm 14 0xff\n', ''),
-    ('pm 15 0x10\n', ''),
-    ('pm 16 0\n', ''),
+    ('pm 16 0xff\n', ''),
+    ('pm 31 0x10\n', ''),
+    ('pm 32 0\n', ''),
 ]:
     def test(self, cmd=cmd, expected=expected):
         assert_srun(cmd, expected)
@@ -330,35 +330,10 @@ for cmd, expected in [
     setattr(InvalidPinModes, 'test_{}({})!'.format(expand_cmd(cmd), cmd[3:-1].replace(' ', ',')), test)
 
 class EEPROM(Shared):
-    @classmethod
-    def setUpClass(cls):
-        dummy.assertEqual(target, 'armock', 'not yet implemented for real hardware')
+    pass
 
 # NOTE Arduino allows reading and writing address outside the valid range, in which case they wrap around.
 # However, I do not know a good way to reproduce that in C++, so armock doesn't support it
-for cmd, index, expected in [
-    ('ee   0x0\n', 0x000, '255\r\n'),
-    ('ee     1\n', 0x001, '254\r\n'),
-    ('ee    02\n', 0x002, '128\r\n'),
-    ('ee 0x07f\n', 0x07f, '127\r\n'),
-    ('ee   128\n', 0x080, '64\r\n'),
-    ('ee  0377\n', 0x0ff, '48\r\n'),
-    ('ee 0x100\n', 0x100, '32\r\n'),
-    ('ee   511\n', 0x1ff, '16\r\n'),
-    ('ee 01000\n', 0x200, '15\r\n'),
-    ('ee 0x2ff\n', 0x2ff, '2\r\n'),
-    ('ee   768\n', 0x300, '1\r\n'),
-    ('ee 01777\n', 0x3ff, '0\r\n'),
-]:
-    def test(self, cmd=cmd, index=index, expected=expected):
-        shm_eeprom.seek(index)
-        shm_eeprom.write(bytes([int(expected)]))
-        shm_eeprom.expected[index] = int(expected)
-        
-        assert_srun(cmd, expected)
-    
-    setattr(EEPROM, 'test_read_EEPROM[{}]->{}'.format(cmd.split()[1], expected[:-2]), test)
-
 for cmd, index, ee_value in [
     ('ee   0x0  255\n', 0x000, 0xff),
     ('ee     1 0376\n', 0x001, 0xfe),
@@ -375,9 +350,27 @@ for cmd, index, ee_value in [
 ]:
     def test(self, cmd=cmd, index=index, ee_value=ee_value):
         srun(cmd)
-        shm_eeprom.expected[index] = ee_value
+        assert_srun(cmd[:8] + '\n', f'{ee_value}\r\n')
+        
+        if target == 'armock': shm_eeprom.expected[index] = ee_value
     
-    setattr(EEPROM, 'test_write_EEPROM[{}]->{}'.format(cmd.split()[1], ee_value), test)
+    setattr(EEPROM, 'test_EEPROM[{}]->{}'.format(cmd.split()[1], ee_value), test)
+
+for cmd, ee_value in [
+    ('ee 3 260\n', 0x04),
+    ('ee 3  -1\n', 0xff),
+]:
+    def test(self, cmd=cmd, ee_value=ee_value):
+        srun('ee 2 0\n')
+        srun(cmd)
+        srun('ee 4 0\n')
+        assert_srun('ee 2\n', '0\r\n')
+        assert_srun('ee 3\n', f'{ee_value}\r\n')
+        assert_srun('ee 4\n', '0\r\n')
+        
+        if target == 'armock': shm_eeprom.expected[3] = ee_value
+    
+    setattr(EEPROM, 'test_EEPROM_overflow[3]->{}'.format(ee_value), test)
 
 class ShmClearing(Shared):
     @classmethod

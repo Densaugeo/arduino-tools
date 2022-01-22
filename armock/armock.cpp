@@ -8,7 +8,8 @@
 #define INPUT 0x0
 #define OUTPUT 0x1
 #define MODE_UNDEFINED 0x2
-#define PINS 16
+
+#define PINS 32
 
 #define DEC 10
 #define HEX 16

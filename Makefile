@@ -19,15 +19,15 @@ lint:
 	shellcheck armock/armock.sh
 
 test-arterm: TARGET=armock
-test-arterm: SUITE=EEPROM or InvalidPinModes or PinsSim or Serial or ShmClearing or Time
+test-arterm: SUITE=Time Serial PinsSim InvalidPinModes EEPROM ShmClearing
 test-arterm: test/armock pytest
 
 test-arterm-nano: TARGET=nano
-test-arterm-nano: SUITE=Serial or Time
+test-arterm-nano: SUITE=Time Serial EEPROM
 test-arterm-nano: pytest
 
 test-arterm-fixture: TARGET=nano-fixture
-test-arterm-fixture: SUITE=Serial or Time or PinsFixture
+test-arterm-fixture: SUITE=Time Serial PinsFixture EEPROM
 test-arterm-fixture: pytest
 
 test/armock: armock/armock.cpp arterm/arterm.ino
@@ -35,9 +35,9 @@ test/armock: armock/armock.cpp arterm/arterm.ino
 
 pytest: test/arterm.py
 ifndef PRETTY
-	python3 -m pytest -v -k '$(SUITE)' test/arterm.py
+	python3 -m pytest -v $(addprefix test/arterm.py::, $(SUITE))
 else
-	python3 -u -m pytest -v --color yes -k '$(SUITE)' test/arterm.py 2>&1 | gawk -f test/pretty-printer.awk
+	python3 -u -m pytest -v --color yes $(addprefix test/arterm.py::, $(SUITE)) 2>&1 | gawk -f test/pretty-printer.awk
 endif
 
 upload: arterm/arterm.ino
